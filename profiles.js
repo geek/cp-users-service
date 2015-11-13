@@ -412,20 +412,7 @@ module.exports = function (options) {
     );
 
     function getProfile (done) {
-      var query = args.query;
-
-      seneca.make$(ENTITY_NS).list$({userId: query.userId}, function (err, results) {
-        if (err) {
-          return done(err);
-        }
-
-        var profile = results[0];
-        if (!profile || !profile.userId) {
-          return done(new Error('Invalid Profile'));
-        }
-
-        return done(null, profile);
-      });
+      seneca.act({role: plugin, cmd:'list', query: {userId: query.userId}}, done);
     }
 
     function getUser (profile, done) {

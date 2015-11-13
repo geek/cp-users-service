@@ -473,8 +473,7 @@ module.exports = function (options) {
     // Load champion for each dojo
     seneca.act({role: 'cd-dojos', cmd: 'dojos_for_user', id: userId}, function (err, response) {
       if (err) return done(err);
-      var dojos = response;
-      async.map(dojos, function (dojo, cb) {
+      async.map(response, function (dojo, cb) {
         if (!dojo) return cb();
         seneca.act({role: 'cd-dojos', cmd: 'load_dojo_champion', id: dojo.id}, cb);
       }, function (err, champions) {
