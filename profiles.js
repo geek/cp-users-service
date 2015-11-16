@@ -107,6 +107,76 @@ module.exports = function (options) {
   seneca.add({role: plugin, cmd: 'invite_ninja'}, cmd_invite_ninja);
   seneca.add({role: plugin, cmd: 'approve_invite_ninja'}, cmd_approve_invite_ninja);
   seneca.add({role: plugin, cmd: 'ninjas_for_user'}, cmd_ninjas_for_user);
+  seneca.add({role: plugin, cmd: 'load_user_profile'}, cmd_load_user_profile);
+  seneca.add({role: plugin, cmd: 'assign_user_types_and_user_permissions'}, cmd_assign_user_types_and_user_permissions);
+
+  function cmd_assign_user_types_and_user_permissions (args, done){
+    async.waterfall([
+        getUsersDojos,
+        assignUserTypesAndUserPermissions
+      ],
+      function (err, userTypes) {
+        if (err) return done(null, {error: err});
+        return done(null, userTypes);
+      }
+    );
+
+    function getUsersDojos (done) {
+      console.log('args.userId: '+ JSON.stringify(args));
+      seneca.act({role: 'cd-dojos', cmd: 'load_usersdojos', query: args.query}, function (err, usersDojos) {
+        if (err) {
+          return done(err);
+        }
+
+        return done(null, usersDojos);
+      });
+    }
+
+    function assignUserTypesAndUserPermissions (usersDojos, done) {
+      seneca.act({role: plugin, cmd: 'list', query: args.query}, function (err, profile) {
+        var userTypesAndPermissions = {
+          userTypes: [],
+          userPermissions: []
+        }
+
+        if (_.isEmpty(usersDojos)) {
+          userTypesAndPermissions.userTypes.push(profile[0].userType);
+        } else {
+          userTypesAndPermissions.userTypes = _.flatten(_.pluck(usersDojos, 'userTypes'));
+          userTypesAndPermissions.userTypes.push(profile[0].userType);
+        }
+
+        userTypesAndPermissions.userPermissions = usersDojos.userPermissions;
+
+        return done(null, userTypesAndPermissions);
+      })
+    }
+  }
+
+  function cmd_load_user_profile (args, done){
+    async.waterfall([
+      loadProfile,
+      addFlags
+    ],
+    function(err, profile){
+      if(err) return done(null, {error: err});
+      return done(null, profile)
+    })
+
+    function loadProfile(done){
+      seneca.make$(ENTITY_NS).load$({userId: args.userId}, done);
+    }
+
+    function addFlags (profile, done) {
+      var userId = args.user ? args.user.id : null;
+      profile.ownProfileFlag = profile && profile.userId === userId;
+      profile.myChild = _.contains(profile.parents, userId);
+      profile.isTicketingAdmin = _.find(profile.userPermissions, function (profileUserPermission) {
+        return profileUserPermission.name === 'ticketing-admin';
+      });
+      return done(null, profile);
+    }
+  }
 
   function cmd_search (args, done) {
     if (!args.query) {
